@@ -1,0 +1,16 @@
+{
+  "name": "extract-ast",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "acorn": "^8.8.1",
+    "escodegen": "^2.0.0",
+    "esprima": "^4.0.1",
+    "nectarjs": "^0.7.115",
+    "recast": "^0.21.5"
+  }
+}
