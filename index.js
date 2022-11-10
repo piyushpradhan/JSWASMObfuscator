@@ -124,7 +124,7 @@ recast.visit(sourceAst, {
   },
   // T3-FunctionName
   visitExpressionStatement: (path) => {
-    if (path.value.expression.type === 'CallExpression' && path.value.expression.callee.name === 'eval') {
+    if (path.value.expression.type === 'CallExpression' && checkIfNameExists(path.value.expression.callee.name)) {
       const functionName = path.value.expression.callee.name;
       const args = [];
       path.value.expression.arguments.map((item) => {
@@ -182,6 +182,7 @@ recast.visit(sourceAst, {
     path.replace(generatedAst);
     return false;
   },
+  // T7-WhileStatement
   visitWhileStatement: (path) => {
     const condition = constructASTNode(path.value.test);
     let body = "";
@@ -211,15 +212,10 @@ function constructASTNode(node) {
   return generated;
 }
 
-async function convertToWasm(code) {
-  var stream = fs.createWriteStream("/tmp/temp.js");
-  stream.once('open', function(fd) {
-    stream.write(code);
-    stream.end();
-  });
-  const { stdout, stderr } = await exec('nectar /tmp/temp.js --env wasm -o /tmp/temp.wasm');
-  const contents = fs.readFileSync("/tmp/temp.wasm", { encoding: "utf8", flag: "r" });
-  console.log(contents);
+function checkIfNameExists(functionName) {
+  const unsafe = ["eval", "escape", "atob", "btoa", "WScript", "unescape", "escape", "Function", "ActiveXObject"];
+  unsafe.forEach((func) => functionName === func);
+  return false;
 }
 
 console.log("ORIGINAL");

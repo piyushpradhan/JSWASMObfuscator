@@ -1,0 +1,121 @@
+ORIGINAL
+------------------------------------------------------------------------------
+const acorn = require("acorn");
+
+var a = "something else";
+const something = "anything else";
+
+var arr = new Array();
+arr[0] = 1;
+arr[1] = 2;
+
+var str = "malicious code";
+
+eval(str);
+
+function callThisFunction(a, b) {
+  return a + b;
+}
+
+callThisFunction(1, 23);
+
+let r = callThisFunction(5, 8);
+
+let flag = 1;
+
+if (flag === 1) {
+  let first = "first";
+  let second = "second";
+} else {
+  let hint = "hint";
+}
+
+for (let i = 0; i < 5; i++) {
+  console.log("Another statement");
+  console.log("loop : ", i);
+}
+
+let i = 10;
+while(i > 0) {
+  console.log("loop still going");
+  i--;
+}
+
+GENERATED
+------------------------------------------------------------------------------
+const acorn = require('acorn');
+var a = function decodeString() {
+    let m = instanWasm(source);
+    let buf = m.instance.exports.memory.buffer;
+    let startInd = m.instance.exports.d1;
+    return loadStrFromBuf(buf, startInd);
+}();
+const something = function decodeString() {
+    let m = instanWasm(source);
+    let buf = m.instance.exports.memory.buffer;
+    let startInd = m.instance.exports.d1;
+    return loadStrFromBuf(buf, startInd);
+}();
+
+var str = function decodeString() {
+    let m = instanWasm(source);
+    let buf = m.instance.exports.memory.buffer;
+    let startInd = m.instance.exports.d1;
+    return loadStrFromBuf(buf, startInd);
+}();
+let m = instanWasm(source);
+let buf = m.instance.exports.memory.buffer;
+let startInd = m.instance.exports.d1;
+window[loadStrFromBuf(buf, startInd)](str);
+function callThisFunction(a, b) {
+    return a + b;
+}
+let impObj = { imports: { impFunc: () => callThisFunction(1, 23) } };
+let m = instanWasm(source, impObj);
+m.instance.exports.f0();
+let r = callThisFunction(5, 8);
+let impObj = {
+    imports: {
+        imp1: () => {
+            let first = 'first';
+            let second = 'second';
+        },
+        imp2: () => {
+            let hint = 'hint';
+        }
+    }
+};
+let flag = 1;
+let m = instanWasm(source, impObj);
+m.instance.exports.f(flag === 1 ? 1 : 0);
+init;
+let impObj = {
+    imports: {
+        cond: () => {
+            return i < 5 ? 1 : 0;
+        },
+        incre: () => {
+            i++;
+        },
+        body: () => {
+            console.log('Another statement');
+            console.log('loop : ', i);
+        }
+    }
+};
+let m = instanWasm(source, impObj);
+m.instance.exports.f();
+let i = 10;
+let impObj = {
+    imports: {
+        cond: () => {
+            return i > 0 ? 1 : 0;
+        },
+        body: () => {
+            console.log('loop still going');
+            i--;
+        }
+    }
+};
+let m = instanWasm(source, impObj);
+m.instance.exports.f();
