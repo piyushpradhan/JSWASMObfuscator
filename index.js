@@ -43,6 +43,45 @@ const t3Rule = (functionName, t3Args) => {
   return { wasm, modifiedJs };
 }
 
+const t4RuleA = (functionName, args) => {
+  const functionSignature = args.length <= 0 ? `${functionName}()` : `${functionName}(${args.join(",")})`;
+  const wasm = '(func $f0 (export "f0")\n\tcall $impFunc) ;; JS import';
+  const modifiedJs = `let impObj = {imports: {impFunc: () => ${functionSignature}}}\nlet m = instanWasm(source, impObj);\nm.instance.exports.f0()`;
+  return { wasm, modifiedJs };
+}
+
+const t4RuleB = (functionName, args) => {
+  const functionSignature = args.length <= 0 ? `f0()` : `f0(${args.join(",")})`;
+  const wasm = '(func $f0 (export "f0) (param externref) (result externref)\n\tlocal.get $p\n\tcall $impFunc) ;; JS import'
+  const modifiedJs = `let impObj = {imports: {impFunc: ${functionName}}};\nlet m = instanWasm(source, impObj);\nlet r = m.instance.exports.${functionSignature};`
+  return { wasm, modifiedJs };
+}
+
+const t5Rule = (condition, ifblocks, elseblocks) => {
+  let wasm = '(func $f (export "f0") (param $p)\n\tlocal.get $p)\nif\n\tcall $imp1 ;; JS import'
+  if (elseblocks.length > 0) {
+    wasm += '\nelse\n\tcall $imp2 ;; JS import'
+  }
+  wasm += '\nend)'
+
+  let ifStatements = "";
+  ifblocks.map((statement) => {
+    ifStatements += statement;
+  });
+  let elseStatements = "";
+  elseblocks.map((statement) => {
+    elseStatements += statement;
+  });
+  const modifiedJs = `let impObj = {imports: {\n\timp1: () => {${ifStatements}},\n\timp2: () => {${elseStatements}}}};\nlet m = instanWasm(source, impObj);\nm.instance.exports.f(${condition} ? 1 : 0);`
+  return { wasm, modifiedJs };
+}
+
+const t6Rule = (condition, increment, body) => {
+  const wasm = `(func $f (export "f0")\n\tblock $L0\n\t\tloop $L1\n\t\t\tcall ${condition} ;; JS import\n\t\t\ti32.eqz\n\t\t\tbr_if $L0\n\t\t\tcall $body ;; JS import\n\t\t\tcall $incre ;; JS import\n\t\t\tbr $L1\n\t\tend\n\tend)`
+  const modifiedJs = `init;\nlet impObj = {\n\timports: {\n\t\tcond:() => {return ${condition} ? 1 : 0},\n\t\tincre: () => {${increment}},\n\t\tbody: () => {${body}}\n\t}\n};\nlet m = instanWasm(source, impObj);\nm.instance.exports.f();`
+  return { wasm, modifiedJs };
+}
+
 recast.visit(sourceAst, {
   visitNode: (path) => {
     let declaration = {};
@@ -77,8 +116,9 @@ recast.visit(sourceAst, {
     }
     return false;
   },
+  // T3-FunctionName
   visitExpressionStatement: (path) => {
-    if (path.value.expression.type === 'CallExpression') {
+    if (path.value.expression.type === 'CallExpression' && path.value.expression.callee.name === 'eval') {
       const functionName = path.value.expression.callee.name;
       const args = [];
       path.value.expression.arguments.map((item) => {
@@ -89,13 +129,55 @@ recast.visit(sourceAst, {
         allowHashBang: false,
       });
       path.replace(generatedAst);
+    } else if (path.value.expression.type === 'CallExpression') {
+      const functionName = path.value.expression.callee.name;
+      const args = [];
+      path.value.expression.arguments.map((item) => {
+        args.push(item.value);
+      });
+      const { modifiedJs } = t4RuleA(functionName, args);
+      const generatedAst = acorn.parse(modifiedJs, {
+        allowHashBang: false,
+      });
+      path.replace(generatedAst);
     }
+    return false;
+  },
+  visitIfStatement: (path) => {
+    const condition = constructASTNode(path.value.test);
+    const ifBlock = [];
+    const elseBlock = [];
+    path.value.consequent.body.map((node) => {
+      ifBlock.push(constructASTNode(node));
+    });
+    path.value.alternate.body.map((node) => {
+      elseBlock.push(constructASTNode(node));
+    });
+    const { modifiedJs } = t5Rule(condition, ifBlock, elseBlock);
+    const generatedAst = acorn.parse(modifiedJs, {
+      allowHashBang: false,
+    });
+    path.replace(generatedAst);
+    return false;
+  },
+  visitForStatement: (path) => {
+    const condition = constructASTNode(path.value.test);
+    const increment = constructASTNode(path.value.update);
+    let body = "";
+    path.value.body.body.map((statement) => {
+      body += constructASTNode(statement);
+    });
+    const { modifiedJs } = t6Rule(condition, increment, body);
+    const generatedAst = acorn.parse(modifiedJs, {
+      allowHashBang: false,
+    });
+    path.replace(generatedAst);
     return false;
   }
 });
 
 function constructFromAST(ast) {
-  // console.log("------------------------------------------------------------------------------");
+  // console.log(------------------------------------------------------------------------------");
   for (ind in ast) {
     const generated = escodegen.generate(ast[ind]);
     console.log(generated);
