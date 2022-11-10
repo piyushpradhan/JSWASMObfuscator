@@ -3,8 +3,11 @@ const acorn = require("acorn");
 var a = "something else";
 const something = "anything else";
 
-function declaration() {
-  const arr = new Array();
-  console.log(arr);
-  return "something is being declared here";
-}
+var arr = new Array();
+arr[0] = 1;
+arr[1] = 2;
+
+var str = "malicious code";
+
+eval(str);
+
