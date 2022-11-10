@@ -82,6 +82,12 @@ const t6Rule = (condition, increment, body) => {
   return { wasm, modifiedJs };
 }
 
+const t7Rule = (condition, body) => {
+  const wasm = `(func $f (export "f0") (param $p)\n\tblock $L0\n\t\tloop $L1\n\t\t\tcall ${condition} ;; JS import\n\t\t\ti32.eqz\n\t\t\tbr_if $L0\n\t\t\tcall $body ;; JS import\n\t\t\tbr $L1\n\t\tend\n\tend)`
+  const modifiedJs = `let impObj = {\n\timports: {\n\t\tcond:() => {return ${condition} ? 1 : 0},\n\t\tbody: () => {${body}}\n\t}\n};\nlet m = instanWasm(source, impObj);\nm.instance.exports.f();`
+  return { wasm, modifiedJs };
+}
+
 recast.visit(sourceAst, {
   visitNode: (path) => {
     let declaration = {};
@@ -143,6 +149,7 @@ recast.visit(sourceAst, {
     }
     return false;
   },
+  // T5-IfStatement
   visitIfStatement: (path) => {
     const condition = constructASTNode(path.value.test);
     const ifBlock = [];
@@ -160,6 +167,7 @@ recast.visit(sourceAst, {
     path.replace(generatedAst);
     return false;
   },
+  // T6-ForStatement
   visitForStatement: (path) => {
     const condition = constructASTNode(path.value.test);
     const increment = constructASTNode(path.value.update);
@@ -168,6 +176,19 @@ recast.visit(sourceAst, {
       body += constructASTNode(statement);
     });
     const { modifiedJs } = t6Rule(condition, increment, body);
+    const generatedAst = acorn.parse(modifiedJs, {
+      allowHashBang: false,
+    });
+    path.replace(generatedAst);
+    return false;
+  },
+  visitWhileStatement: (path) => {
+    const condition = constructASTNode(path.value.test);
+    let body = "";
+    path.value.body.body.map((statement) => {
+      body += constructASTNode(statement);
+    });
+    const { modifiedJs } = t7Rule(condition, body);
     const generatedAst = acorn.parse(modifiedJs, {
       allowHashBang: false,
     });

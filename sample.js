@@ -30,3 +30,9 @@ for (let i = 0; i < 5; i++) {
   console.log("Another statement");
   console.log("loop : ", i);
 }
+
+let i = 10;
+while(i > 0) {
+  console.log("loop still going");
+  i--;
+}
